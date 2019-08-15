@@ -27,16 +27,16 @@ library(export)
 
 #################### optional: load saved environment ########################
 
-load("A:/B/Ubiqum/module3/wifi/.RData")
+            load("A:/B/Ubiqum/module3/wifi/wifi_locate_envir.RData")
 
 ####################      optional: load models     ##########################
 
-Mod_fin_Rf_Long<-readRDS("A:/B/Ubiqum/module3/wifi/Mod_fin_Rf_Long.RDS")
-Mod_fin_Rf_lat<-readRDS("A:/B/Ubiqum/module3/wifi/Mod_fin_Rf_lat.RDS")
-Mod_fin_Rf_floor<-readRDS("A:/B/Ubiqum/module3/wifi/Mod_fin_Rf_floor.RDS")
-Mod_fin_kkNN_Long<-readRDS("A:/B/Ubiqum/module3/wifi/Mod_fin_kkNN_Long.RDS")
-Mod_fin_kkNN_lat<-readRDS("A:/B/Ubiqum/module3/wifi/Mod_fin_kkNN_lat.RDS")
-Mod_fin_kkNN_floor<-readRDS("A:/B/Ubiqum/module3/wifi/Mod_fin_kkNN_floor.RDS")
+            Mod_fin_Rf_Long<-readRDS("A:/B/Ubiqum/module3/wifi/Mod_fin_Rf_Long.RDS")
+            Mod_fin_Rf_lat<-readRDS("A:/B/Ubiqum/module3/wifi/Mod_fin_Rf_lat.RDS")
+            Mod_fin_Rf_floor<-readRDS("A:/B/Ubiqum/module3/wifi/Mod_fin_Rf_floor.RDS")
+            Mod_fin_kkNN_Long<-readRDS("A:/B/Ubiqum/module3/wifi/Mod_fin_kkNN_Long.RDS")
+            Mod_fin_kkNN_lat<-readRDS("A:/B/Ubiqum/module3/wifi/Mod_fin_kkNN_lat.RDS")
+            Mod_fin_kkNN_floor<-readRDS("A:/B/Ubiqum/module3/wifi/Mod_fin_kkNN_floor.RDS")
 
 ####################          import data         ############################
 
@@ -44,13 +44,9 @@ validate<-read.csv('A:/B/Ubiqum/module3/wifi/validationData.csv')
 
 ####################          preprocessing       ############################
 
-# filter out irrelevant WAPs
+# filter out irrelevant WAPs and unneseceraily features
 
-filter_validate<-select(validate,helpfilter)
-
-# filter out unnecessary features
-
-filter_validate[,c('BUILDINGID','SPACEID','USERID','PHONEID','RELATIVEPOSITION','TIMESTAMP')]<-list(NULL)
+filter_validate<-select(validate,helpfilter2)
 
 ####################          predictions         ############################
 
@@ -99,10 +95,10 @@ error_in_meters_pred
 ####################      export the results      ############################
 
 write.csv(cbind(Predict_lat_rf,Predict_long_rf,Predict_f_rf),
-          'A:/B/Ubiqum/module3/wifi/randomforestpred.csv',row.names = FALSE,quote = FALSE)
+          'A:/B/Ubiqum/module3/wifi/gabor_randomforestpred.csv',row.names = FALSE,quote = FALSE)
 
 write.csv(cbind(Predict_lat_kknn,Predict_long_kknn,Predict_f_kknn),
-          'A:/B/Ubiqum/module3/wifi/weightedknnpred.csv',row.names = FALSE,quote = FALSE)
+          'A:/B/Ubiqum/module3/wifi/gabor_weightedknnpred.csv',row.names = FALSE,quote = FALSE)
 
 ###################     visualize prediction      ############################
 
