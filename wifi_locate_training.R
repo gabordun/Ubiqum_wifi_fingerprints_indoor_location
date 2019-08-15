@@ -25,9 +25,9 @@ library(kknn)
 library(mlbench)
 library(export)
 
-#################### optional: load saved environment ##################################
+####################     optional: load saved environment ####################
 
-load("A:/B/Ubiqum/module3/wifi/.RData")
+            load("A:/B/Ubiqum/module3/wifi/wifi_locate_envir.RData")
 
 ####################          import data         ############################
 
@@ -82,6 +82,13 @@ table(validate$USERID)
 table(validate$PHONEID)
 table(validate$TIMESTAMP)
 
+### number of unique values in each WAP's signal strength levels
+
+freqie<-apply(validate,2,unique)
+freqie<-lapply(freqie,length)
+freqie<-as.numeric(freqie)
+freqie<-freqie[-(521:529)]
+
 ### number of different values
 
 length(unique(validate$LONGITUDE))
@@ -90,6 +97,7 @@ length(unique(validate$LATITUDE))
 ###plots
 
 ggplot(validate,aes(x=LONGITUDE, y=LATITUDE))+geom_point()
+barplot(freqie)
 
 # delete plots
 
@@ -97,32 +105,47 @@ graphics.off()
 
 ##################        preprocess data        ##############################
 
-# identify irrelevant WAPs
+# identification of irrelevant WAPs
 
-nearzerovar<-data.frame(nearZeroVar(validate, freqCut= 99.25/0.75,saveMetrics = TRUE,names = TRUE))
-nearzerovar<-cbind(nearzerovar,colnames(validate))
-colnames(nearzerovar)[5]<-'colnames'
-nearzerovar_filt<-filter(nearzerovar,nearzerovar$nzv=='FALSE')
+features<-colnames(validate)
+features<-features[-(521:529)]
+SELECTION<-data.frame(cbind(features,freqie))
+SELECTION$freqie=as.numeric(SELECTION$freqie)
+
+quantile(freqie,0.6)
 
 # filter out irrelevant WAPs
 
-helpfilter<-as.vector(nearzerovar_filt$colnames)
-filter_training<-select(training,helpfilter)
+SELECTED<-filter(SELECTION, freqie>quantile(freqie,0.6))
+helpfilter<-as.vector(SELECTED$features)
+helpfilter2<-c(helpfilter,'LONGITUDE','LATITUDE','FLOOR')
+filter_training<-select(training,helpfilter2)
+
+# optional - identification of irrelevant WAPs
+
+        nearzerovar<-data.frame(nearZeroVar(validate, freqCut= 99.25/0.75,saveMetrics = TRUE,names = TRUE))
+        nearzerovar<-cbind(nearzerovar,colnames(validate))
+        colnames(nearzerovar)[5]<-'colnames'
+        nearzerovar_filt<-filter(nearzerovar,nearzerovar$nzv=='FALSE')
+
+# optional - filter out irrelevant WAPs
+
+        helpfilter<-as.vector(nearzerovar_filt$colnames)
+        filter_training<-select(training,helpfilter)
 
 # dataset for training the model
 
 filter_training2<-filter_training
-filter_training2[,c('SPACEID','USERID','PHONEID','RELATIVEPOSITION','TIMESTAMP')]<-list(NULL)
 
 ####################      Part 1: train predictive models    #################
 
 ###################             predict longitude           ##################
 
-## set floors -> optional
+## optional - set floors
 
-filter_training2<-filter(filter_training2, FLOOR!='2')
-filter_training2<-filter(filter_training2, FLOOR!='3')
-filter_training2<-filter(filter_training2, FLOOR!='4')
+            filter_training2<-filter(filter_training2, FLOOR!='2')
+            filter_training2<-filter(filter_training2, FLOOR!='3')
+            filter_training2<-filter(filter_training2, FLOOR!='4')
 
 ##  setting sample, training, testing
 
@@ -133,7 +156,7 @@ a<-0.1*rownum
 # setting sample
 
 filter_training_longitude<-filter_training2
-filter_training_longitude[,c('LATITUDE','FLOOR','BUILDINGID')]<-list(NULL)
+filter_training_longitude[,c('LATITUDE','FLOOR')]<-list(NULL)
 Sample<-(filter_training_longitude[sample(1:nrow(filter_training2),floor(a),replace=FALSE), ])
 
 # partioning to training and testing sets
@@ -159,8 +182,8 @@ varImp(Mod1_kNN_Long)
 Mod2_SVM_Long<-svm(LONGITUDE~.,data=trainingset, kernel="linear",
                 scale = FALSE,
                 tolerance = 0.01,
-                cost = c(1,5,10,15),
-                cross = 10)
+                cost = c(1,10),
+                cross = 3)
 Mod2_SVM_Long
 
 ## Gradient boosted trees
@@ -175,7 +198,7 @@ Mod3_GBM_Long
 
 ## Random forest
 
-Mod4_Rf_Long<-randomForest(LONGITUDE~.,data=trainingset, mtry=100,ntree= 120,
+Mod4_Rf_Long<-randomForest(LONGITUDE~.,data=trainingset, mtry=25,ntree= 120,
                      trControl=fitControl)
 Mod4_Rf_Long
 
@@ -231,7 +254,7 @@ a<-0.1*rownum
 # setting sample
 
 filter_training_latitude<-filter_training2
-filter_training_latitude[,c('FLOOR','LONGITUDE','BUILDINGID')]<-list(NULL)
+filter_training_latitude[,c('FLOOR','LONGITUDE')]<-list(NULL)
 Sample<-(filter_training_latitude[sample(1:nrow(filter_training2),floor(a),replace=FALSE), ])
 
 # partioning to training and testing sets
@@ -244,20 +267,20 @@ fitControl<-trainControl(method="repeatedcv", number=10, repeats = 1)
 
 ## model kNN
 
-Mod21_kNN_lat<-train(LATITUDE~.,
-                       data=trainingset, 
-                       method="knn",trControl=fitControl,
-                       tuneGrid = expand.grid(k = 1:25),
-                       tuneLength=10)
-Mod21_kNN_lat
-varImp(Mod21_kNN_lat)
+  Mod21_kNN_lat<-train(LATITUDE~.,
+                         data=trainingset, 
+                         method="knn",trControl=fitControl,
+                         tuneGrid = expand.grid(k = 1:25),
+                         tuneLength=10)
+  Mod21_kNN_lat
+  varImp(Mod21_kNN_lat)
 
 ## SVM, linear kernel
 
 Mod22_SVM_lat<-svm(LATITUDE~.,data=trainingset, kernel="linear",
                      scale = FALSE,
                      tolerance = 0.01,
-                     cost = c(1,5,10,15),
+                     cost = c(1,10),
                      cross = 3)
 Mod22_SVM_lat
 
@@ -273,7 +296,7 @@ Mod23_GBM_lat
 
 ## Random forest
 
-Mod24_Rf_lat<-randomForest(LATITUDE~.,data=trainingset, mtry=100,ntree=120,
+Mod24_Rf_lat<-randomForest(LATITUDE~.,data=trainingset, mtry=40, tree=120,
                              trControl=fitControl)
 Mod24_Rf_lat
 
@@ -336,7 +359,7 @@ a<-0.1*rownum
 # setting sample
 
 filter_training_floor<-filter_training2
-filter_training_floor[,c('LATITUDE','LONGITUDE','BUILDINGID')]<-list(NULL)
+filter_training_floor[,c('LATITUDE','LONGITUDE')]<-list(NULL)
 Sample<-(filter_training_floor[sample(1:nrow(filter_training2),floor(a),replace=FALSE), ])
 
 # partioning to training and testing sets
@@ -362,7 +385,7 @@ varImp(Mod11_kNN_floor)
 Mod12_SVM_floor<-svm(FLOOR~.,data=trainingset, kernel="linear",
                      scale = FALSE,
                      tolerance = 0.01,
-                     cost = c(1,5,10,15),
+                     cost = c(1,10),
                      cross = 3)
 Mod12_SVM_floor
 
@@ -378,7 +401,7 @@ Mod13_GBM_floor
 
 ## Random forest
 
-Mod14_Rf_floor<-randomForest(FLOOR~.,data=trainingset, mtry=100,ntree=120,
+Mod14_Rf_floor<-randomForest(FLOOR~.,data=trainingset, mtry=40,ntree=120,
                            trControl=fitControl)
 Mod14_Rf_floor
 
@@ -417,7 +440,7 @@ accuracy_f<-rbind(c('kNN','SVM','GBM','RF','kkNN'),
 # adjust dataset
 
 filter_training_longitude<-filter_training2
-filter_training_longitude[,c('LATITUDE','FLOOR','BUILDINGID')]<-list(NULL)
+filter_training_longitude[,c('LATITUDE','FLOOR')]<-list(NULL)
 
 # partioning to training and testing sets
 
@@ -428,7 +451,7 @@ fitControl<-trainControl(method="repeatedcv", number=10, repeats = 1)
 
 ## Random forest
 
-  Mod_fin_Rf_Long<-randomForest(LONGITUDE~.,data=trainingset, mtry=100,ntree= 120,
+  Mod_fin_Rf_Long<-randomForest(LONGITUDE~.,data=trainingset, mtry=25,ntree= 120,
                              trControl=fitControl)
   Mod_fin_Rf_Long
 
@@ -436,7 +459,7 @@ fitControl<-trainControl(method="repeatedcv", number=10, repeats = 1)
 
 Mod_fin_kkNN_Long<-train.kknn(LONGITUDE~.,
                            trainingset,
-                           ks = 11,
+                           ks = 5,
                            distance = 2)
 cv.kknn(LONGITUDE~., trainingset, kcv = 10)
 Mod_fin_kkNN_Long
@@ -464,7 +487,7 @@ MAPE_long_fin<-rbind(c('RF','kkNN'),
 # adjust dataset
 
 filter_training_latitude<-filter_training2
-filter_training_latitude[,c('FLOOR','LONGITUDE','BUILDINGID')]<-list(NULL)
+filter_training_latitude[,c('FLOOR','LONGITUDE')]<-list(NULL)
 
 # partioning to training and testing sets
 
@@ -476,7 +499,7 @@ fitControl<-trainControl(method="repeatedcv", number=10, repeats = 1)
 
 ## Random forest
 
-Mod_fin_Rf_lat<-randomForest(LATITUDE~.,data=trainingset, mtry=100,ntree=120,
+Mod_fin_Rf_lat<-randomForest(LATITUDE~.,data=trainingset, mtry=40,ntree=120,
                            trControl=fitControl)
 Mod_fin_Rf_lat
 
@@ -484,7 +507,7 @@ Mod_fin_Rf_lat
 
 Mod_fin_kkNN_lat<-train.kknn(LATITUDE~.,
                            trainingset,
-                           ks = 6,
+                           ks = 9,
                            distance = 2)
 cv.kknn(LATITUDE~., trainingset, kcv = 10)
 Mod_fin_kkNN_lat
@@ -517,7 +540,7 @@ error_in_meters_fin
 ###################             predict floor           ##################
 
 filter_training_floor<-filter_training2
-filter_training_floor[,c('LATITUDE','LONGITUDE','BUILDINGID')]<-list(NULL)
+filter_training_floor[,c('LATITUDE','LONGITUDE')]<-list(NULL)
 
 # partioning to training and testing sets
 
@@ -528,7 +551,7 @@ fitControl<-trainControl(method="repeatedcv", number=10, repeats = 1)
 
 ## Random forest
 
-Mod_fin_Rf_floor<-randomForest(FLOOR~.,data=trainingset, mtry=100,ntree=120,
+Mod_fin_Rf_floor<-randomForest(FLOOR~.,data=trainingset, mtry=40,ntree=120,
                              trControl=fitControl)
 Mod_fin_Rf_floor
 
@@ -536,7 +559,7 @@ Mod_fin_Rf_floor
 
 Mod_fin_kkNN_floor<-train.kknn(FLOOR~.,
                              trainingset,
-                             ks = 11,
+                             ks = 7,
                              distance = 2)
 cv.kknn(FLOOR~., trainingset, kcv = 10)
 Mod_fin_kkNN_floor
